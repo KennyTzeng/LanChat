@@ -29,8 +29,8 @@
 #define DEFAULT_IF	"eth0"
 #define BUF_SIZ		1024
 
-int main(int argc, char *argv[])
-{
+int recvPacket() {
+
 	char sender[INET6_ADDRSTRLEN];
 	int sockfd, ret, i;
 	int sockopt;
@@ -41,12 +41,6 @@ int main(int argc, char *argv[])
 	uint8_t buf[BUF_SIZ];
 	char ifName[IFNAMSIZ];
 	
-	/* Get interface name */
-	if (argc > 1)
-		strcpy(ifName, argv[1]);
-	else
-		strcpy(ifName, DEFAULT_IF);
-
 	/* Header structures */
 	struct ether_header *eh = (struct ether_header *) buf;
 	struct iphdr *iph = (struct iphdr *) (buf + sizeof(struct ether_header));

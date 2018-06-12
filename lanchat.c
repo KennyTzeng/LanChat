@@ -12,25 +12,65 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 
-void getNetworkInterfaces();
-void lanChat();
-void sendPacket();
+struct InterfaceInfo getNetworkInterfaces();
+void lanChat(struct InterfaceInfo);
+int sendPacket();
 void recvPacket();
+
+struct InterfaceInfo {
+	int num;
+	int index[32];
+	char mac_addr[32][7];
+};
 
 int main(int argc, char *argv[]) {
 	
-	getNetworkInterfaces();
-	lanChat();
+	struct InterfaceInfo ifInfo = getNetworkInterfaces();
+	lanChat(ifInfo);
 
 	return 0;
 }
 
-void getNetworkInterfaces() {
+void lanChat(struct InterfaceInfo ifInfo) {
+	
+	char name[32], message[128];
+	pid_t pid;
+	
+	printf("Enter your name: ");
+	scanf("%32s", name);
+	printf("Welcome, '%s'!\n", name);
 
+	for(int i=0; i<ifInfo.num; i++) {
+		if((pid = fork()) < 0) {
+			perror("fork");
+			exit(EXIT_FAILURE);
+		} else if(pid == 0) {
+			// recvPacket();
+			exit(0);
+		}	
+	}
+
+	while(1) {
+		memset(message, 0, 128);
+		scanf("%128s", message);
+		for(int j=0; j<ifInfo.num; j++) {
+			// sendPacket();
+		}
+	}
+
+	return;
+
+}
+
+struct InterfaceInfo getNetworkInterfaces() {
+	
+	struct InterfaceInfo ifInfo;
 	struct ifaddrs *ifaddr, *ifa;
 	struct ifreq ifr;
 	int interfaceIndex;
 	char addr[16], mask[16], broadaddr[16];
+
+	memset(&ifInfo, 0, sizeof(struct InterfaceInfo));
 
 	printf("Enumerated network interfaces:\n");
 
@@ -54,12 +94,6 @@ void getNetworkInterfaces() {
 			printf("%-3d - %-10s %-15s %-15s (%-15s) ", interfaceIndex, ifa->ifa_name, addr, mask, broadaddr);
 			
 
-			/*
-			printf("address: %s\n", inet_ntoa(((struct sockaddr_in *) ifa->ifa_addr)->sin_addr));
-			printf("mask: %s\n", inet_ntoa(((struct sockaddr_in *)ifa->ifa_netmask)->sin_addr));
-			printf("bmask: %s\n", inet_ntoa(((struct sockaddr_in *)((ifa->ifa_ifu).ifu_broadaddr))->sin_addr));			
-			*/
-
 			int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 			strcpy(ifr.ifr_name, ifa->ifa_name);
 			if(ioctl(fd, SIOCGIFHWADDR, &ifr) == 0) {
@@ -71,6 +105,16 @@ void getNetworkInterfaces() {
 					(unsigned char) ifr.ifr_addr.sa_data[4],
 					(unsigned char) ifr.ifr_addr.sa_data[5]);
 			}
+
+			ifInfo.index[ifInfo.num] = interfaceIndex;
+			ifInfo.mac_addr[ifInfo.num][0] = ifr.ifr_addr.sa_data[0];
+			ifInfo.mac_addr[ifInfo.num][1] = ifr.ifr_addr.sa_data[1];
+			ifInfo.mac_addr[ifInfo.num][2] = ifr.ifr_addr.sa_data[2];
+			ifInfo.mac_addr[ifInfo.num][3] = ifr.ifr_addr.sa_data[3];
+			ifInfo.mac_addr[ifInfo.num][4] = ifr.ifr_addr.sa_data[4];
+			ifInfo.mac_addr[ifInfo.num][5] = ifr.ifr_addr.sa_data[5];
+			ifInfo.num = ifInfo.num + 1;			
+
 			close(fd);
 			
 		}
@@ -80,43 +124,6 @@ void getNetworkInterfaces() {
 	freeifaddrs(ifaddr);
 
 
-	return;
+	return ifInfo;
 }
 
-void lanChat() {
-	
-	char name[32], message[128];
-	pid_t pid;
-	
-	printf("Enter your name: ");
-	scanf("%32s", name);
-	printf("Welcome, '%s'!\n", name);
-
-	if((pid = fork()) < 0) {
-		perror("fork");
-		exit(EXIT_FAILURE);
-	} else if(pid == 0) {
-		recvPacket();
-		exit(0);
-	}	
-	
-	while(1) {
-		memset(message, 0, 128);
-		scanf("%128s", message);
-		sendPacket();
-	}
-
-	return;
-}
-
-void sendPacket() {
-
-	printf("send\n");	
-
-}
-
-void recvPacket() {
-
-	printf("recv\n");	
-
-}
