@@ -14,7 +14,7 @@
 
 struct InterfaceInfo getNetworkInterfaces();
 void lanChat(struct InterfaceInfo);
-int sendPacket();
+int sendPacket(int index, char mac_addr[], char *message);
 void recvPacket();
 
 struct InterfaceInfo {
@@ -35,9 +35,20 @@ void lanChat(struct InterfaceInfo ifInfo) {
 	
 	char name[32], message[128];
 	pid_t pid;
+	int c, input_pos = 0;
 	
+
 	printf("Enter your name: ");
-	scanf("%32s", name);
+	while(1) {
+		c = getchar();
+		if(c == EOF || c == '\n'|| input_pos >= 31) {
+			name[input_pos] = '\0';
+			break;
+		}else {
+			name[input_pos] = c;
+		}
+		input_pos++;
+	}
 	printf("Welcome, '%s'!\n", name);
 
 	for(int i=0; i<ifInfo.num; i++) {
@@ -52,9 +63,21 @@ void lanChat(struct InterfaceInfo ifInfo) {
 
 	while(1) {
 		memset(message, 0, 128);
-		scanf("%128s", message);
+		input_pos = 0;
+		
+		while(1) {
+			c = getchar();
+			if(c == EOF || c == '\n' || input_pos >= 127) {
+				message[input_pos] = '\0';
+				break;
+			}else {
+				message[input_pos] = c;
+			}
+			input_pos++;
+		}
+
 		for(int j=0; j<ifInfo.num; j++) {
-			// sendPacket();
+			sendPacket(ifInfo.index[j], ifInfo.mac_addr[j], message);
 		}
 	}
 
