@@ -13,10 +13,14 @@
 #include <net/if.h>
 
 void getNetworkInterfaces();
+void lanChat();
+void sendPacket();
+void recvPacket();
 
 int main(int argc, char *argv[]) {
 	
 	getNetworkInterfaces();
+	lanChat();
 
 	return 0;
 }
@@ -77,4 +81,42 @@ void getNetworkInterfaces() {
 
 
 	return;
+}
+
+void lanChat() {
+	
+	char name[32], message[128];
+	pid_t pid;
+	
+	printf("Enter your name: ");
+	scanf("%32s", name);
+	printf("Welcome, '%s'!\n", name);
+
+	if((pid = fork()) < 0) {
+		perror("fork");
+		exit(EXIT_FAILURE);
+	} else if(pid == 0) {
+		recvPacket();
+		exit(0);
+	}	
+	
+	while(1) {
+		memset(message, 0, 128);
+		scanf("%128s", message);
+		sendPacket();
+	}
+
+	return;
+}
+
+void sendPacket() {
+
+	printf("send\n");	
+
+}
+
+void recvPacket() {
+
+	printf("recv\n");	
+
 }
