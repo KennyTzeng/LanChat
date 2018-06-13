@@ -21,36 +21,16 @@
 int sendPacket(int index, char mac_addr[], char *message) {
 
 	int sockfd;
-	// struct ifreq if_idx;
-	// struct ifreq if_mac;
 	int packet_len = 0;
 	char sendBuf[BUF_SIZE];
 	struct ether_header *eh = (struct ether_header *) sendBuf;
-	// struct iphdr *iph = (struct iphdr *) (sendBuf + sizeof(struct ether_header));
 	struct sockaddr_ll socket_address;
-	// char ifName[IFNAMSIZ];
 	
-
 	/* Open RAW socket to send on */
 	if((sockfd = socket(AF_PACKET, SOCK_RAW, IPPROTO_RAW)) == -1) {
-		perror("socket");
+		perror("sender socket");
 		return -1;	
 	}
-
-	/* Get the index of the interface to send on */
-	/*
-	memset(&if_idx, 0, sizeof(struct ifreq));
-	strncpy(if_idx.ifr_name, ifName, IFNAMSIZ-1);
-	if (ioctl(sockfd, SIOCGIFINDEX, &if_idx) < 0)
-	    perror("SIOCGIFINDEX");
-	*/
-	/* Get the MAC address of the interface to send on */
-	/*
-	memset(&if_mac, 0, sizeof(struct ifreq));
-	strncpy(if_mac.ifr_name, ifName, IFNAMSIZ-1);
-	if (ioctl(sockfd, SIOCGIFHWADDR, &if_mac) < 0)
-	    perror("SIOCGIFHWADDR");
-	*/
 
 	/* Construct the Ethernet header */
 	memset(sendBuf, 0, BUF_SIZE);
@@ -61,7 +41,6 @@ int sendPacket(int index, char mac_addr[], char *message) {
 	eh->ether_shost[3] = mac_addr[3];
 	eh->ether_shost[4] = mac_addr[4];
 	eh->ether_shost[5] = mac_addr[5];
-	//eh->ether_shost[5] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[5];
 	eh->ether_dhost[0] = DEST_MAC0;
 	eh->ether_dhost[1] = DEST_MAC1;
 	eh->ether_dhost[2] = DEST_MAC2;
@@ -75,15 +54,8 @@ int sendPacket(int index, char mac_addr[], char *message) {
 	/* Packet data */
 	strncpy(sendBuf + packet_len, message, strlen(message));
 	packet_len += strlen(message);
-	/*
-	sendBuf[tx_len++] = 0xde;
-	sendBuf[tx_len++] = 0xad;
-	sendBuf[tx_len++] = 0xbe;
-	sendBuf[tx_len++] = 0xef;
-	*/
 
 	/* Index of the network device */
-	// socket_address.sll_ifindex = if_idx.ifr_ifindex;
 	socket_address.sll_ifindex = index;
 	/* Address length*/
 	socket_address.sll_halen = ETH_ALEN;
@@ -100,7 +72,7 @@ int sendPacket(int index, char mac_addr[], char *message) {
 	    printf("Send failed\n");
 		return -1;
 	} else {
-		printf("send success. %d %02x:%02x:%02x:%02x:%02x:%02x %s\n", index, (unsigned char) mac_addr[0], (unsigned char) mac_addr[1], (unsigned char) mac_addr[2], (unsigned char) mac_addr[3], (unsigned char) mac_addr[4], (unsigned char) mac_addr[5], message);
+		// printf("send success. %d %02x:%02x:%02x:%02x:%02x:%02x %s\n", index, (unsigned char) mac_addr[0], (unsigned char) mac_addr[1], (unsigned char) mac_addr[2], (unsigned char) mac_addr[3], (unsigned char) mac_addr[4], (unsigned char) mac_addr[5], message);
 	}
 
 	return 0;

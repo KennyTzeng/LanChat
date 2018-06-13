@@ -15,16 +15,18 @@
 struct InterfaceInfo getNetworkInterfaces();
 void lanChat(struct InterfaceInfo);
 int sendPacket(int index, char mac_addr[], char *message);
-void recvPacket();
+int recvPacket(char *ifName);
 
 struct InterfaceInfo {
 	int num;
 	int index[32];
+	char ifName[32][32];
 	char mac_addr[32][7];
 };
 
 int main(int argc, char *argv[]) {
-	
+
+	setbuf(stdout, NULL);
 	struct InterfaceInfo ifInfo = getNetworkInterfaces();
 	lanChat(ifInfo);
 
@@ -33,7 +35,7 @@ int main(int argc, char *argv[]) {
 
 void lanChat(struct InterfaceInfo ifInfo) {
 	
-	char name[32], message[128];
+	char name[32], message[128], payload[164];
 	pid_t pid;
 	int c, input_pos = 0;
 	
@@ -56,12 +58,13 @@ void lanChat(struct InterfaceInfo ifInfo) {
 			perror("fork");
 			exit(EXIT_FAILURE);
 		} else if(pid == 0) {
-			// recvPacket();
+			recvPacket(ifInfo.ifName[i]);
 			exit(0);
 		}	
 	}
 
 	while(1) {
+		memset(payload, 0, 164);
 		memset(message, 0, 128);
 		input_pos = 0;
 		
@@ -76,8 +79,13 @@ void lanChat(struct InterfaceInfo ifInfo) {
 			input_pos++;
 		}
 
+		strcpy(payload, "[");
+		strcat(payload, name);
+		strcat(payload, "]: ");
+		strcat(payload, message);
+
 		for(int j=0; j<ifInfo.num; j++) {
-			sendPacket(ifInfo.index[j], ifInfo.mac_addr[j], message);
+			sendPacket(ifInfo.index[j], ifInfo.mac_addr[j], payload);
 		}
 	}
 
@@ -129,14 +137,17 @@ struct InterfaceInfo getNetworkInterfaces() {
 					(unsigned char) ifr.ifr_addr.sa_data[5]);
 			}
 
-			ifInfo.index[ifInfo.num] = interfaceIndex;
-			ifInfo.mac_addr[ifInfo.num][0] = ifr.ifr_addr.sa_data[0];
-			ifInfo.mac_addr[ifInfo.num][1] = ifr.ifr_addr.sa_data[1];
-			ifInfo.mac_addr[ifInfo.num][2] = ifr.ifr_addr.sa_data[2];
-			ifInfo.mac_addr[ifInfo.num][3] = ifr.ifr_addr.sa_data[3];
-			ifInfo.mac_addr[ifInfo.num][4] = ifr.ifr_addr.sa_data[4];
-			ifInfo.mac_addr[ifInfo.num][5] = ifr.ifr_addr.sa_data[5];
-			ifInfo.num = ifInfo.num + 1;			
+			if(strcmp(addr, "127.0.0.1") != 0){
+				ifInfo.index[ifInfo.num] = interfaceIndex;
+				strncpy(ifInfo.ifName[ifInfo.num], ifa->ifa_name, 32);
+				ifInfo.mac_addr[ifInfo.num][0] = ifr.ifr_addr.sa_data[0];
+				ifInfo.mac_addr[ifInfo.num][1] = ifr.ifr_addr.sa_data[1];
+				ifInfo.mac_addr[ifInfo.num][2] = ifr.ifr_addr.sa_data[2];
+				ifInfo.mac_addr[ifInfo.num][3] = ifr.ifr_addr.sa_data[3];
+				ifInfo.mac_addr[ifInfo.num][4] = ifr.ifr_addr.sa_data[4];
+				ifInfo.mac_addr[ifInfo.num][5] = ifr.ifr_addr.sa_data[5];
+				ifInfo.num = ifInfo.num + 1;			
+			}
 
 			close(fd);
 			

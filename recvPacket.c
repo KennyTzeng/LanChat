@@ -1,128 +1,79 @@
-/*
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- */
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <arpa/inet.h>
 #include <linux/if_packet.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <net/if.h>
 #include <netinet/ether.h>
 
-#define DEST_MAC0	0x08
-#define DEST_MAC1	0x00
-#define DEST_MAC2	0x27
-#define DEST_MAC3	0xdf
-#define DEST_MAC4	0x8a
-#define DEST_MAC5	0x3e
+#define BUF_SIZE	1024
+#define ETH_MY_TYPE	0x0801
 
-#define ETHER_TYPE	0x0801
+int recvPacket(char *ifName) {
 
-#define DEFAULT_IF	"eth0"
-#define BUF_SIZ		1024
-
-int recvPacket() {
-
-	char sender[INET6_ADDRSTRLEN];
-	int sockfd, ret, i;
+	int sockfd;
 	int sockopt;
-	ssize_t numbytes;
+	ssize_t numBytes;
 	struct ifreq ifopts;	/* set promiscuous mode */
-	struct ifreq if_ip;	/* get ip addr */
-	struct sockaddr_storage their_addr;
-	uint8_t buf[BUF_SIZ];
-	char ifName[IFNAMSIZ];
-	
-	/* Header structures */
-	struct ether_header *eh = (struct ether_header *) buf;
-	struct iphdr *iph = (struct iphdr *) (buf + sizeof(struct ether_header));
-	struct udphdr *udph = (struct udphdr *) (buf + sizeof(struct iphdr) + sizeof(struct ether_header));
+	uint8_t recvBuf[BUF_SIZE];
 
-	memset(&if_ip, 0, sizeof(struct ifreq));
-
-	/* Open PF_PACKET socket, listening for EtherType ETHER_TYPE */
-	if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETHER_TYPE))) == -1) {
-		perror("listener: socket");	
+	/* Open PF_PACKET socket, listening for EtherType ETH_MY_TYPE */
+	if((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_MY_TYPE))) == -1) {
+		perror("listener socket");	
 		return -1;
 	}
 
 	/* Set interface to promiscuous mode - do we need to do this every time? */
+	/*
 	strncpy(ifopts.ifr_name, ifName, IFNAMSIZ-1);
 	ioctl(sockfd, SIOCGIFFLAGS, &ifopts);
 	ifopts.ifr_flags |= IFF_PROMISC;
 	ioctl(sockfd, SIOCSIFFLAGS, &ifopts);
+	*/
 	/* Allow the socket to be reused - incase connection is closed prematurely */
-	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &sockopt, sizeof sockopt) == -1) {
-		perror("setsockopt");
+	/*
+	if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &sockopt, sizeof(sockopt)) == -1) {
+		perror("set sockopt");
 		close(sockfd);
 		exit(EXIT_FAILURE);
 	}
+	*/
+	
 	/* Bind to device */
-	if (setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, ifName, IFNAMSIZ-1) == -1)	{
+	if(setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, ifName, IFNAMSIZ-1) == -1)	{
 		perror("SO_BINDTODEVICE");
 		close(sockfd);
 		exit(EXIT_FAILURE);
 	}
 
-repeat:	printf("listener: Waiting to recvfrom...\n");
-	numbytes = recvfrom(sockfd, buf, BUF_SIZ, 0, NULL, NULL);
-	printf("listener: got packet %lu bytes\n", numbytes);
+	while(1) {
 
-	/* Check the packet is for me */
-	if (eh->ether_dhost[0] == DEST_MAC0 &&
-			eh->ether_dhost[1] == DEST_MAC1 &&
-			eh->ether_dhost[2] == DEST_MAC2 &&
-			eh->ether_dhost[3] == DEST_MAC3 &&
-			eh->ether_dhost[4] == DEST_MAC4 &&
-			eh->ether_dhost[5] == DEST_MAC5) {
-		printf("Correct destination MAC address\n");
-	} else {
-		printf("Wrong destination MAC: %x:%x:%x:%x:%x:%x\n",
-						eh->ether_dhost[0],
-						eh->ether_dhost[1],
-						eh->ether_dhost[2],
-						eh->ether_dhost[3],
-						eh->ether_dhost[4],
-						eh->ether_dhost[5]);
-		ret = -1;
-		goto done;
-	}
+		// printf("listener: Waiting to recvfrom...\n");
+		numBytes = recvfrom(sockfd, recvBuf, BUF_SIZE, 0, NULL, NULL);
+		// printf("listener: got packet %lu bytes\n", numBytes);
 
-	/* Get source IP */
-	((struct sockaddr_in *)&their_addr)->sin_addr.s_addr = iph->saddr;
-	inet_ntop(AF_INET, &((struct sockaddr_in*)&their_addr)->sin_addr, sender, sizeof sender);
-
-	/* Look up my device IP addr if possible */
-	strncpy(if_ip.ifr_name, ifName, IFNAMSIZ-1);
-	if (ioctl(sockfd, SIOCGIFADDR, &if_ip) >= 0) { /* if we can't check then don't */
-		printf("Source IP: %s\n My IP: %s\n", sender, 
-				inet_ntoa(((struct sockaddr_in *)&if_ip.ifr_addr)->sin_addr));
-		/* ignore if I sent it */
-		if (strcmp(sender, inet_ntoa(((struct sockaddr_in *)&if_ip.ifr_addr)->sin_addr)) == 0)	{
-			printf("but I sent it :(\n");
-			ret = -1;
-			goto done;
+		/* Print packet */
+		printf(">>> <%02x:%02x:%02x:%02x:%02x:%02x> ", 
+			(unsigned char)recvBuf[6],
+			(unsigned char)recvBuf[7],
+			(unsigned char)recvBuf[8],
+			(unsigned char)recvBuf[9],
+			(unsigned char)recvBuf[10],
+			(unsigned char)recvBuf[11]);
+	
+		for(int i = 14; i < numBytes; i++) {
+			printf("%c", recvBuf[i]);
 		}
+		printf("\n");
+
 	}
-
-	/* UDP payload length */
-	ret = ntohs(udph->len) - sizeof(struct udphdr);
-
-	/* Print packet */
-	printf("\tData:");
-	for (i=0; i<numbytes; i++) printf("%02x:", buf[i]);
-	printf("\n");
-
-done:	goto repeat;
 
 	close(sockfd);
-	return ret;
+	return 0;
 }
